@@ -1,0 +1,32 @@
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+public enum {{ custom_error_enum_name }}: Error {
+    case generic(status: Int, message: String)
+    case unauthorized(_ message: String)
+    case idRequired
+    case migrationFailed(_ message: String)
+}
+
+extension Error {
+    public func getStatusAndMessage() -> (status: Int, message: String) {
+        if let myError = self as? {{ custom_error_enum_name }} {
+            switch myError {
+            case .generic(let status, let message):
+                return (status, message)
+            // 4xx - client errors
+            case .unauthorized(let message):
+                return (401, message)
+            // 5xx - server errors
+            case .idRequired:
+                return (000, "ID required")
+            case .migrationFailed(let message):
+                return (000, message)
+            }
+        } else {
+            return (000, self.localizedDescription)
+        }
+    }
+}

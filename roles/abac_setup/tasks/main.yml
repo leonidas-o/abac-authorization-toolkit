@@ -1,0 +1,66 @@
+- name: Conformances Setup
+  block:
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: '{{ vapor_path }}/{{ item.value.path }}'
+      state: directory
+      mode: '0755'
+    loop: "{{ fluent_model_conformances | dict2items }}"
+    when: item.value.is_active == true
+
+  - name: Create Models from templates
+    ansible.builtin.template:
+      src: '{{ item.value.template_path }}'
+      dest: '{{ vapor_path }}/{{ item.value.path }}/{{ item.value.file_name }}'
+      mode: '0640'
+      selevel: '_default'
+      serole: '_default'
+      setype: '_default'
+      seuser: '_default'
+    loop: "{{ fluent_model_conformances | dict2items }}"
+    when: item.value.is_active == true
+
+
+- name: configure.swift
+  block:
+  - name: Import abac-authorization
+    ansible.builtin.lineinfile:
+      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      regexp: '^.*import ABACAuthorization.*$'
+      insertafter: '^.*import .*$'
+      line: 'import ABACAuthorization'
+
+  - name: setup abac in configure.swift
+    ansible.builtin.blockinfile:
+      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      marker_begin: 1. BEGIN
+      marker_end: 1. END
+      marker: "// {mark} ANSIBLE MANAGED BLOCK"
+      block: '{{ configure_block | indent(width=4, first=True) }}'
+      insertafter: '^public func configure\(_ app: Application\) async throws {\s*$'
+
+  - name: Setting up abac2 var
+    ansible.builtin.set_fact:
+      abac2: |
+          // MARK: Lifecycle Handler
+
+          app.lifecycle.use(Prepare())
+
+  - name: setup prepare.swift in configure.swift
+    ansible.builtin.blockinfile:
+      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      marker_begin: 2. BEGIN
+      marker_end: 2. END
+      marker: "// {mark} ANSIBLE MANAGED BLOCK"
+      block: '{{ abac2 | indent(width=4, first=True) }}'
+      insertbefore: '^\s*}\s*$'
+
+  - name: Create prepare.swift file from template
+    ansible.builtin.template:
+      src: prepare.swift.j2
+      dest: '{{ vapor_path }}/Sources/App/prepare.swift'
+      mode: '0640'
+      selevel: '_default'
+      serole: '_default'
+      setype: '_default'
+      seuser: '_default'

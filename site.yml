@@ -1,0 +1,7 @@
+- name: Setup abac-authorization in new vapor template
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: sample_frontend_backend
+      tags: sample-frontend-backend

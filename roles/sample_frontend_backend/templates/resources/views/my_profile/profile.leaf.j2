@@ -1,0 +1,53 @@
+#extend("base"):
+    #export("body"):
+<h1>#(title)</h1>
+
+<div class="container">
+    
+    <div class="row">
+        <div class="col-md-8">
+                    
+            <form method="post" #if(formActionResetPassword):action="#(formActionResetPassword)"#endif>
+                
+                <div class="mb-3">
+                    <input type="password" name="currentPassword" class="form-control border-top-0 border-end-0 border-start-0" id="current-password" placeholder="Current Password"/>
+                </div>
+                
+                <div class="mb-3">
+                    <input type="password" name="password" class="form-control border-top-0 border-end-0 border-start-0" id="password-input" placeholder="Password"/>
+                </div>
+                
+                <div class="mb-3">
+                    <input type="password" name="confirmPassword" class="form-control border-top-0 border-end-0 border-start-0" id="confirm_password" placeholder="Confirm Password"/>
+                </div>
+                
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#update_password_modal" title="Update Password">Update</button>
+                <div class="modal fade" id="update_password_modal" tabindex="-1" role="dialog" aria-labelledby="update_password_modal_label" aria-hidden="true">
+                  <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="update_password_modal_label">Update Password</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                          Are you sure, you want to update your current password? All devices connected to your account will be logged out.
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, don't update!</button>
+                        #if(csrfToken):
+                            <input type="hidden" name="_csrfToken" value="#(csrfToken)">
+                        #endif
+                        <button type="submit" class="btn btn-danger">Yes, update!</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+            </form>
+                    
+        </div>
+    </div>
+        
+</div>
+    #endexport
+#endextend

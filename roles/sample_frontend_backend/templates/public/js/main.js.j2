@@ -1,0 +1,35 @@
+$('#auth_policy_form').submit(function() {
+    $('#action_key').val(
+         $('#action_key_value').val() + $('#resource_key_value').val()
+    );
+});
+ 
+ 
+var roleObject = $('#role_object')
+roleObject.blur(function() {
+    $('#role_id').val(
+        roleObject.children("option").filter(":selected").val()
+    );
+    $('#role_name').val(
+        roleObject.children("option").filter(":selected").text()
+    );
+});
+
+document.addEventListener('DOMContentLoaded', function(event) {
+    // toast behaviour for info and error
+    // error
+    var error=document.getElementById('app-error');
+    if(error!==null) error.classList.add('fade-in');
+    // info
+    var info=document.getElementById('app-info');
+    if(info!==null) info.classList.add('fade-in');
+    setTimeout(function () {
+        if(error!==null) error.classList.add('fade-out');
+        if(info!==null) info.classList.add('fade-out');
+    }, 6000);
+    setTimeout(function () {
+        if(error!==null) error.remove();
+        if(info!==null) info.remove();
+    }, 7000);
+    
+});

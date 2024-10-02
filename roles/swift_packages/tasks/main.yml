@@ -1,0 +1,36 @@
+- name: Add dependencies
+  ansible.builtin.lineinfile:
+    path: '{{ vapor_path }}/Package.swift'
+    regexp: '^.*{{ item.value.pkg_line | regex_escape() }}.*$'
+    insertafter: '^.*\.package\(.*$'
+    line: '{{ item.value.pkg_line }}{{ item.value.pkg_version_suffix }}'
+  loop: "{{ swift_packages | dict2items }}"
+  when: item.value.is_active == true
+
+# ansibles 'replace' module handles multiline operations 
+# better than 'lineinfile' module with backrefs option
+# therefor only check_mode used
+- name: Check if targets already set
+  ansible.builtin.lineinfile:
+    path: '{{ vapor_path }}/Package.swift'
+    regexp: '^.*{{ item.value.prod_line | regex_escape() }}.*$'
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: targets_search_result
+  loop: "{{ swift_packages | dict2items }}"
+  when: item.value.is_active == true
+
+# - name: Debug
+#   debug:
+#     msg: "{{ item.item }}"
+#   loop: "{{ targets_search_result.results }}"
+#   when: (item.found == false) and (item.item.value.is_active == true)
+
+- name: Add missing targets
+  ansible.builtin.replace:
+    path: '{{ vapor_path }}/Package.swift'
+    regexp: '(^.*executableTarget.*\s.*name.*\s.*dependencies:.*\[.*)([\s\S]*?)([^\S\r\n]*],)'
+    replace: '\1\2{{ item.item.value.prod_line }}\n\3'
+  loop: "{{ targets_search_result.results }}"
+  when: (item.found == false) and (item.item.value.is_active == true)

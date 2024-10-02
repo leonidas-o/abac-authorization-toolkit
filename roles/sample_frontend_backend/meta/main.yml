@@ -1,0 +1,3 @@
+dependencies:
+  - role: swift_packages
+  - role: abac_setup

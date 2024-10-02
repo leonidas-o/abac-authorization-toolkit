@@ -1,0 +1,60 @@
+import Vapor
+import ABACAuthorization
+
+protocol AccessDataRepo: ABACAccessDataRepo {
+    // ABAC requirements
+    func get<D>(key: String, as type: D.Type) async throws -> D? where D: Decodable
+    // custom requirements
+    func save<E>(key: String, to entity: E) async throws where E: Encodable
+    func delete(key: String) async throws -> Int
+    func delete(keys: [String]) async throws -> Int
+    func getExistingKeys<D>(using keys: [String], as type: [D].Type) async throws -> [D] where D: Decodable
+    func setExpiration(forKey key: String, afterSeconds seconds: Int) async throws -> Bool
+}
+
+
+
+struct AccessDataRepoFactory {
+    // AccessDataRepo in Request
+    var make: ((Request) -> AccessDataRepo)?
+    mutating func use(_ make: @escaping ((Request) -> AccessDataRepo)) {
+        self.make = make
+    }
+    
+    // AccessDataRepo in Application
+    var makeForApp: ((Application) -> AccessDataRepo)?
+    mutating func useForApp(_ make: @escaping ((Application) -> AccessDataRepo)) {
+        self.makeForApp = make
+    }
+}
+
+
+
+extension Application {
+    private struct AccessDataRepoKey: StorageKey {
+        typealias Value = AccessDataRepoFactory
+    }
+
+    var accessDataRepoFactory: AccessDataRepoFactory {
+        get {
+            self.storage[AccessDataRepoKey.self] ?? .init()
+        }
+        set {
+            self.storage[AccessDataRepoKey.self] = newValue
+        }
+    }
+}
+
+
+
+extension Application {
+    var accessDataRepo: AccessDataRepo {
+        self.accessDataRepoFactory.makeForApp!(self)
+    }
+}
+
+extension Request {
+    var accessDataRepo: AccessDataRepo {
+        self.application.accessDataRepoFactory.make!(self)
+    }
+}

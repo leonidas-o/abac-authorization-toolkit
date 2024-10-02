@@ -1,0 +1,422 @@
+access_data_repo_name: RedisRepo # currently only RedisRepo is available
+import_fluent_postgresql_driver: true
+
+swift_packages:
+  abac_authorization_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/leonidas-o/abac-authorization.git",'
+    pkg_version_suffix: ' exact: "0.9.0-alpha.8"),'
+    prod_line: '                .product(name: "ABACAuthorization", package: "abac-authorization"),'
+  fluent_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/vapor/fluent.git",'
+    pkg_version_suffix: ' from: "4.0.0"),'
+    prod_line: '                .product(name: "Fluent", package: "fluent"),'
+  fluent_db_driver_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/vapor/fluent-postgres-driver.git",'
+    pkg_version_suffix: ' from: "2.0.0"),'
+    prod_line: '                .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),'
+  nio_dns_client_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/OpenKitten/NioDNS.git",'
+    pkg_version_suffix: ' from: "2.0.0"),'
+    prod_line: '                .product(name: "DNSClient", package: "NioDNS"),'
+  redis_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/vapor/redis.git",'
+    pkg_version_suffix: ' from: "4.0.0"),'
+    prod_line: '                .product(name: "Redis", package: "redis"),'
+  leaf_pkg:
+    is_active: true
+    pkg_line: '        .package(url: "https://github.com/vapor/leaf.git",'
+    pkg_version_suffix: ' from: "4.0.0"),'
+    prod_line: '                .product(name: "Leaf", package: "leaf"),'
+
+fluent_model_conformances:
+  all_conformances:
+    is_active: true
+    template_path: Conformances.swift.j2
+    path: Sources/App/ABACAuthorization/Models
+    file_name: Conformances.swift
+
+#########################################################################################
+# IMPORTANT: make sure you add/remove repositories/migrations etc. depending on your 
+# samples settings below. This block will be added to 'configure.swift'
+configure_block: |
+    // NIO HTTP Server
+    app.http.server.configuration.port = APIConnection.port
+
+    // Repositories
+    app.userRepoFactory.use { req in UserPostgreSQLRepo(db: req.db) }
+    app.userRepoFactory.useForApp { app in UserPostgreSQLRepo(db: app.db) }
+    app.roleRepoFactory.use { req in RolePostgreSQLRepo(db: req.db) }
+    app.roleRepoFactory.useForApp { app in RolePostgreSQLRepo(db: app.db) }
+    // ABACAuthorization
+    app.abacAuthorizationRepoFactory.use { req in ABACAuthorizationFluentRepo(db: req.db) }
+    app.abacAuthorizationRepoFactory.useForApp { app in ABACAuthorizationFluentRepo(db: app.db) }
+    // specify what repository will be created by cacheRepoFactory
+    app.accessDataRepoFactory.use { req in RedisRepo(client: req.redis) }
+    app.accessDataRepoFactory.useForApp { app in RedisRepo(client: app.redis) }
+
+    // PostgreSQL
+    let databaseHostname = Environment.get("DATABASE_HOSTNAME") ?? "localhost"
+    let databaseName: String
+    let databasePort: Int
+    if (app.environment == .testing) {
+        databaseName = Environment.get("DATABASE_NAME_TEST") ?? "abacauthweb-test"
+        if let testPort = Environment.get("DATABASE_PORT_TEST") {
+            databasePort = Int(testPort) ?? 5433
+        } else {
+            databasePort = 5433
+        }
+    } else {
+        databaseName = Environment.get("DATABASE_NAME") ?? "abacauthweb"
+        if let port = Environment.get("DATABASE_PORT") {
+            databasePort = Int(port) ?? 5432
+        } else {
+            databasePort = 5432
+        }
+    }
+    let databaseUsername = Environment.get("DATABASE_USERNAME") ?? "abacauthweb"
+    let databasePassword = Environment.get("DATABASE_PASSWORD") ?? "abac12345"
+    let sqlPostgresConfiguration = SQLPostgresConfiguration(hostname: databaseHostname,
+                                                            port: databasePort,
+                                                            username: databaseUsername,
+                                                            password: databasePassword,
+                                                            database: databaseName,
+                                                            tls: .prefer(try .init(configuration: .clientDefault))
+    )
+    app.databases.use(.postgres(configuration: sqlPostgresConfiguration), as: .psql)
+    // Model lifecycle events
+    app.databases.middleware.use(ABACAuthorizationPolicyModelMiddleware())
+    app.databases.middleware.use(ABACConditionModelMiddleware())
+
+    // Redis
+    let redisHostname = Environment.get("REDIS_HOSTNAME") ?? "localhost"
+    let redisPort: Int
+    if (app.environment == .testing) {
+        redisPort = 6380
+    } else {
+        redisPort = 6379
+    }
+    app.redis.configuration = try .init(hostname: redisHostname, port: redisPort)
+
+    // Sessions
+    app.sessions.use(.redis)
+    app.sessions.configuration.cookieName = "abac-session"
+    
+    // Middleware
+    app.middleware.use(app.sessions.middleware)
+    app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+    app.middleware.use(ErrorMiddleware.default(environment: app.environment))
+    
+    // Migrations
+    app.migrations.add(UserModelMigration())
+    app.migrations.add(RoleModelMigration())
+    app.migrations.add(UserRolePivotMigration())
+    // ABACAuthorization
+    app.migrations.add(ABACAuthorizationPolicyModelMigration())
+    app.migrations.add(ABACConditionModelMigration())
+    // data seeding
+    app.migrations.add(AdminUserMigration())
+    app.migrations.add(SystemBotUserMigration())
+    app.migrations.add(DefaultRolesMigration())
+    // ABACAuthorization
+    app.migrations.add(RestrictedABACAuthorizationPoliciesMigration())
+    try await app.autoMigrate()
+
+    // Leaf
+    app.views.use(.leaf)
+    app.leaf.cache.isEnabled = app.environment.isRelease
+
+routes_block: |
+    try app.register(collection: AuthController(cache: app.accessDataRepo))
+    try app.register(collection: IndexController())
+    try app.register(collection: UserController(cache: app.accessDataRepo))
+    try app.register(collection: RoleController(cache: app.accessDataRepo))
+    try app.register(collection: MyProfileController())
+
+    // ABACAuthorization
+    try app.register(collection: ABACAuthorizationPolicyController(accessDataRepo: app.accessDataRepo))
+    try app.register(collection: ABACConditionController(accessDataRepo: app.accessDataRepo))
+
+#########################################################################################
+# Sample Code
+custom_error_enum_name: MyCustomError
+admin_user_email: webmaster@foo.com
+systembot_user_email: systembot@foo.com
+
+# All sample code template objects
+sample_code_objects:
+  ## Sources
+  # User
+  user_model:
+    is_active: true
+    template_path: sources/user/UserModel.swift.j2
+    path: Sources/App/User/Models
+    file_name: UserModel.swift
+  user_dto:
+    is_active: true
+    template_path: sources/user/User.swift.j2
+    path: Sources/App/User/Models
+    file_name: User.swift
+  user_data_dto:
+    is_active: true
+    template_path: sources/user/UserData.swift.j2
+    path: Sources/App/User/Models
+    file_name: UserData.swift
+  admin_user_migration:
+    is_active: true
+    template_path: sources/user/AdminUserMigration.swift.j2
+    path: Sources/App/User/Models
+    file_name: AdminUserMigration.swift
+  systembot_user_migration:
+    is_active: true
+    template_path: sources/user/SystemBotUserMigration.swift.j2
+    path: Sources/App/User/Models
+    file_name: SystemBotUserMigration.swift
+  user_persistence_repo_factory:
+    is_active: true
+    template_path: sources/user/UserPersistenceRepoFactory.swift.j2
+    path: Sources/App/User
+    file_name: UserPersistenceRepoFactory.swift
+  user_postgresql_repo:
+    is_active: true
+    template_path: sources/user/UserPostgreSQLRepo.swift.j2
+    path: Sources/App/User
+    file_name: UserPostgreSQLRepo.swift
+  user_controller:
+    is_active: true
+    template_path: sources/user/UserController.swift.j2
+    path: Sources/App/User
+    file_name: UserController.swift
+  reset_password_data_dto:
+    is_active: true
+    template_path: sources/user/ResetPasswordData.swift.j2
+    path: Sources/App/User/Models
+    file_name: ResetPasswordData.swift
+  # Auth
+  access_data_dto:
+    is_active: true
+    template_path: sources/auth/AccessData.swift.j2
+    path: Sources/App/Auth/Models
+    file_name: AccessData.swift
+  auth_controller:
+    is_active: true
+    template_path: sources/auth/AuthController.swift.j2
+    path: Sources/App/Auth
+    file_name: AuthController.swift
+  # Role
+  role_model:
+    is_active: true
+    template_path: sources/role/RoleModel.swift.j2
+    path: Sources/App/Role/Models
+    file_name: RoleModel.swift
+  role_dto:
+    is_active: true
+    template_path: sources/role/Role.swift.j2
+    path: Sources/App/Role/Models
+    file_name: Role.swift
+  default_roles_migration:
+    is_active: true
+    template_path: sources/role/DefaultRolesMigration.swift.j2
+    path: Sources/App/Role/Models
+    file_name: DefaultRolesMigration.swift
+  user_role_pivot:
+    is_active: true
+    template_path: sources/role/UserRolePivot.swift.j2
+    path: Sources/App/Role/Models
+    file_name: UserRolePivot.swift
+  role_persistence_repo_factory:
+    is_active: true
+    template_path: sources/role/RolePersistenceRepoFactory.swift.j2
+    path: Sources/App/Role
+    file_name: RolePersistenceRepoFactory.swift
+  role_postgresql_repo:
+    is_active: true
+    template_path: sources/role/RolePostgreSQLRepo.swift.j2
+    path: Sources/App/Role
+    file_name: RolePostgreSQLRepo.swift
+  role_controller:
+    is_active: true
+    template_path: sources/role/RoleController.swift.j2
+    path: Sources/App/Role
+    file_name: RoleController.swift
+  # General
+  api_resource:
+    is_active: true
+    template_path: sources/general/APIResource.swift.j2
+    path: Sources/App/General
+    file_name: APIResource.swift
+  custom_error:
+    is_active: true
+    template_path: sources/general/CustomError.swift.j2
+    path: Sources/App/General
+    file_name: CustomError.swift
+  user_auth_sessions_middleware:
+    is_active: true
+    template_path: sources/general/UserAuthSessionsMiddleware.swift.j2
+    path: Sources/App/General
+    file_name: UserAuthSessionsMiddleware.swift
+  api_connection:
+    is_active: true
+    template_path: sources/general/APIConnection.swift.j2
+    path: Sources/App/General
+    file_name: APIConnection.swift
+  token_response:
+    is_active: true
+    template_path: sources/general/TokenResponse.swift.j2
+    path: Sources/App/General
+    file_name: TokenResponse.swift
+  auth_manager:
+    is_active: true
+    template_path: sources/general/AuthManager.swift.j2
+    path: Sources/App/General
+    file_name: AuthManager.swift
+  client_response:
+    is_active: true
+    template_path: sources/general/ClientResponse.swift.j2
+    path: Sources/App/General
+    file_name: ClientResponse.swift
+  # Cache
+  access_data_repo_factory:
+    is_active: true
+    template_path: sources/cache/AccessDataRepoFactory.swift.j2
+    path: Sources/App/Cache
+    file_name: AccessDataRepoFactory.swift
+  my_access_data_repo:
+    is_active: true
+    template_path: sources/cache/{{ access_data_repo_name }}.swift.j2
+    path: Sources/App/Cache
+    file_name: '{{ access_data_repo_name }}.swift'
+  # Index
+  authenticate_data:
+    is_active: true
+    template_path: sources/index/AuthenticateData.swift.j2
+    path: Sources/App/Index/Models
+    file_name: AuthenticateData.swift
+  login_data:
+    is_active: true
+    template_path: sources/index/LoginData.swift.j2
+    path: Sources/App/Index/Models
+    file_name: LoginData.swift
+  index_controller:
+    is_active: true
+    template_path: sources/index/IndexController.swift.j2
+    path: Sources/App/Index
+    file_name: IndexController.swift
+  # MyProfile
+  my_profile_controller:
+    is_active: true
+    template_path: sources/my_profile/MyProfileController.swift.j2
+    path: Sources/App/MyProfile
+    file_name: MyProfileController.swift
+  # ABAC
+  restricted_abac_policies_migration:
+    is_active: true
+    template_path: sources/abac/RestrictedABACAuthorizationPoliciesMigration.swift.j2
+    path: Sources/App/ABACAuthorization/Models
+    file_name: RestrictedABACAuthorizationPoliciesMigration.swift
+  auth_policy_controller:
+    is_active: true
+    template_path: sources/abac/ABACAuthorizationPolicyController.swift.j2
+    path: Sources/App/ABACAuthorization
+    file_name: ABACAuthorizationPolicyController.swift
+  auth_policy_condition_controller:
+    is_active: true
+    template_path: sources/abac/ABACConditionController.swift.j2
+    path: Sources/App/ABACAuthorization
+    file_name: ABACConditionController.swift
+  ## Resources
+  # /
+  base_view:
+    is_active: true
+    template_path: resources/views/base.leaf.j2
+    path: Resources/Views
+    file_name: base.leaf
+  index_view:
+    is_active: true
+    template_path: resources/views/index.leaf.j2
+    path: Resources/Views
+    file_name: index.leaf
+  login_view:
+    is_active: true
+    template_path: resources/views/login.leaf.j2
+    path: Resources/Views
+    file_name: login.leaf
+  # user
+  users_view:
+    is_active: true
+    template_path: resources/views/user/users.leaf.j2
+    path: Resources/Views/user
+    file_name: users.leaf
+  user_view:
+    is_active: true
+    template_path: resources/views/user/user.leaf.j2
+    path: Resources/Views/user
+    file_name: user.leaf
+  user_delete_view:
+    is_active: true
+    template_path: resources/views/user/userDelete.leaf.j2
+    path: Resources/Views/user
+    file_name: userDelete.leaf
+  user_role_view:
+    is_active: true
+    template_path: resources/views/user/role.leaf.j2
+    path: Resources/Views/user
+    file_name: role.leaf
+  # role
+  roles_view:
+    is_active: true
+    template_path: resources/views/role/roles.leaf.j2
+    path: Resources/Views/role
+    file_name: roles.leaf
+  role_view:
+    is_active: true
+    template_path: resources/views/role/role.leaf.j2
+    path: Resources/Views/role
+    file_name: role.leaf
+  # authPolicy
+  authorization_policies_view:
+    is_active: true
+    template_path: resources/views/auth_policy/authorizationPolicies.leaf.j2
+    path: Resources/Views/authPolicy
+    file_name: authorizationPolicies.leaf
+  authorization_policy_view:
+    is_active: true
+    template_path: resources/views/auth_policy/authorizationPolicy.leaf.j2
+    path: Resources/Views/authPolicy
+    file_name: authorizationPolicy.leaf
+  authorization_policy_delete_view:
+    is_active: true
+    template_path: resources/views/auth_policy/authorizationPolicyDelete.leaf.j2
+    path: Resources/Views/authPolicy
+    file_name: authorizationPolicyDelete.leaf
+  condition_value_view:
+    is_active: true
+    template_path: resources/views/auth_policy/conditionValue.leaf.j2
+    path: Resources/Views/authPolicy
+    file_name: conditionValue.leaf
+  condition_value_delete_view:
+    is_active: true
+    template_path: resources/views/auth_policy/conditionValueDelete.leaf.j2
+    path: Resources/Views/authPolicy
+    file_name: conditionValueDelete.leaf
+  # myProfile
+  my_profile_profile_view:
+    is_active: true
+    template_path: resources/views/my_profile/profile.leaf.j2
+    path: Resources/Views/myProfile
+    file_name: profile.leaf  
+  ## Public
+  app_css_file:
+    is_active: true
+    template_path: public/styles/app.css.j2
+    path: Public/styles
+    file_name: app.css
+  main_js_file:
+    is_active: true
+    template_path: public/js/main.js.j2
+    path: Public/js
+    file_name: main.js

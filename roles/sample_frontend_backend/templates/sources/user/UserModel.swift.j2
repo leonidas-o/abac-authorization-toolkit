@@ -1,0 +1,153 @@
+import Vapor
+import Fluent
+import ABACAuthorization
+
+protocol UserDefinition {
+    var id: UUID? { get set }
+    var name: String { get set }
+    var email: String { get set }
+    var password: String { get set }
+    var cachedAccessToken: String? { get set }
+    
+    func convertToUserPublic() -> User.Public
+}
+
+
+final class UserModel: Model {
+    
+    static let schema = "user"
+    
+    @ID(key: .id) var id: UUID?
+    @Field(key: "name") var name: String
+    @Field(key: "email") var email: String
+    @Field(key: "password") var password: String
+    @OptionalField(key: "cached_access_token") var cachedAccessToken: String?
+    
+    // Siblings - values in pivot table
+    @Siblings(through: UserRolePivot.self, from: \.$user, to: \.$role) public var roles: [RoleModel]
+    
+    
+    init() {}
+    
+    init(id: UUID? = nil,
+         name: String,
+         email: String,
+         password: String,
+         cachedAccessToken: String? = nil) {
+        self.id = id
+        self.name = name
+        self.email = email
+        self.password = password
+        self.cachedAccessToken = cachedAccessToken
+    }
+    
+}
+
+
+
+// MARK: - General conformance
+
+/// Allows `UserModel` to be encoded to and decoded from HTTP messages.
+extension UserModel: Content {}
+
+
+
+// MARK: - DTO conversion
+
+extension UserModel: UserDefinition {
+    func convertToUserPublic() -> User.Public {
+        return User.Public(id: id, name: name, email: email)
+    }
+}
+
+extension UserModel {
+    func convertToUser() -> User {
+        return User(id: id,
+                    name: name,
+                    email: email,
+                    password: password,
+                    cachedAccessToken: cachedAccessToken)
+    }
+}
+
+
+extension User {
+    func convertToUserModel() -> UserModel {
+        return UserModel(id: id,
+                         name: name,
+                         email: email,
+                         password: password,
+                         cachedAccessToken: cachedAccessToken)
+    }
+}
+
+
+
+// MARK: - Authentication
+
+extension UserModel: Authenticatable {}
+
+// Basic Authentication
+// Note: Used the manual approach, instead Fluents 'ModelAuthenticatable'
+extension UserModel {
+    func verify(password: String) throws -> Bool {
+        try Bcrypt.verify(password, created: self.password)
+    }
+}
+
+struct UserModelBasicAuthenticator: AsyncBasicAuthenticator {
+    typealias User = App.UserModel
+
+    func authenticate(basic: BasicAuthorization, for request: Request) async throws {
+        guard let user = try await UserModel.query(on: request.db).filter(\.$email == basic.username).first() else {
+            return
+        }
+        guard try user.verify(password: basic.password) else {
+            return
+        }
+        request.auth.login(user)
+    }
+}
+
+// Token Authentication
+// Note: Used the manual approach, instead Fluents 'ModelTokenAuthenticatable'
+struct UserModelBearerAuthenticator: AsyncBearerAuthenticator {
+
+    struct AccessDataKey: StorageKey {
+        typealias Value = AccessData
+    }
+    
+    func authenticate(bearer: BearerAuthorization, for request: Request) async throws {
+        let accessData = try await request.accessDataRepo.get(key: bearer.token, as: AccessData.self)
+        guard let accessData = accessData else {
+            return
+        }
+        let user = accessData.userData.user.convertToUserModel()
+        request.auth.login(user)
+        await request.storage.setWithAsyncShutdown(AccessDataKey.self, to: accessData)
+        return
+    }
+}
+
+
+
+// MARK: - Migration
+
+/// Allows `User` to be used as a Fluent migration.
+struct UserModelMigration: AsyncMigration {
+    func prepare(on database: Database) async throws {
+        try await database.schema("user")
+        .id()
+        .field("name", .string, .required)
+        .field("email", .string, .required)
+        .unique(on: "email")
+        .field("password", .string, .required)
+        .field("cached_access_token", .string)
+        .create()
+    }
+    
+    func revert(on database: Database) async throws {
+        try await database.schema("user")
+        .delete()
+    }
+}

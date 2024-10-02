@@ -1,0 +1,55 @@
+import Vapor
+import Redis
+import NIO
+
+struct RedisRepo: AccessDataRepo {
+    
+    let client: RedisClient
+    
+
+    func get<D>(key: String, as type: D.Type) async throws -> D? where D: Decodable {
+        let redisKey = RedisKey(key)
+        
+        guard let result = try await client.get(redisKey, asJSON: D.self) else {
+            return nil
+        }
+        return result
+    }
+    
+    func save<E>(key: String, to entity: E) async throws where E: Encodable {
+        let redisKey = RedisKey(key)
+        try await client.set(redisKey, to: try JSONEncoder().encode(entity)).get()
+    }
+    
+    func delete(key: String) async throws -> Int {
+        let redisKey = RedisKey(key)
+        return try await client.delete(redisKey).get()
+    }
+    
+    
+    func delete(keys: [String]) async throws -> Int {
+        let redisKeys = keys.map { RedisKey($0) }
+        if !keys.isEmpty {
+            return try await client.delete(redisKeys).get()
+        } else {
+            return 0
+        }
+    
+    }
+
+    func getExistingKeys<D>(using keys: [String], as type: [D].Type) async throws -> [D] where D: Decodable {
+        let redisKeys = keys.map { RedisKey($0) }
+        let data = try await client.mget(redisKeys, as: Data.self).get()
+        return try data.compactMap { data in
+            guard let data = data else {
+                return nil
+            }
+            return try JSONDecoder().decode(D.self, from: data)
+        }
+    }
+    
+    func setExpiration(forKey key: String, afterSeconds seconds: Int) async throws -> Bool {
+        let redisKey = RedisKey(key)
+        return try await client.expire(redisKey, after: TimeAmount.seconds(Int64(seconds))).get()
+    }
+}

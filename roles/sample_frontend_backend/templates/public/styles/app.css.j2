@@ -1,0 +1,45 @@
+body, html {
+	height: 100%;
+}
+
+body {
+	font-family: sans-serif;
+}
+
+div.welcome {
+	height: 100%;
+	text-align: center;
+}
+
+div.welcome img {
+	position: relative;
+  	top: 50%;
+  	transform: translateY(-50%);
+	width: 300px;
+}
+
+.fade-in-prepare {
+    opacity: 0;
+}
+.fade-in {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.5s linear;
+}
+.fade-out {
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0s 0.5s, opacity 0.5s linear;
+}
+#app-info, #app-error{
+    z-index: 1;
+}
+
+.active {
+  text-decoration: underline;
+}
+
+
+a {
+    cursor: pointer;
+}

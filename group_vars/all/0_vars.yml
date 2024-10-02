@@ -1,0 +1,2 @@
+# vapor path inside the container
+vapor_path: /srv/vapor

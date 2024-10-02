@@ -1,0 +1,9 @@
+import ABACAuthorization
+
+extension UserModel: ABACUser {}
+extension RoleModel: ABACRole {}
+extension Role: ABACRole {}
+extension UserData: ABACUserData {
+    public typealias ABACRoleType = Role
+}
+extension AccessData: ABACAccessData {}

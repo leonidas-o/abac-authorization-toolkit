@@ -1,0 +1,50 @@
+- name: Samples Setup
+  block:
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: '{{ vapor_path }}/{{ item.value.path }}'
+      state: directory
+      mode: '0755'
+    loop: "{{ sample_code_objects | dict2items }}"
+    when: item.value.is_active == true
+
+  - name: Create files from templates
+    ansible.builtin.template:
+      src: '{{ item.value.template_path }}'
+      dest: '{{ vapor_path }}/{{ item.value.path }}/{{ item.value.file_name }}'
+      mode: '0640'
+      selevel: '_default'
+      serole: '_default'
+      setype: '_default'
+      seuser: '_default'
+    loop: "{{ sample_code_objects | dict2items }}"
+    when: item.value.is_active == true
+
+  # - name: setup routes.swift
+  #   ansible.builtin.blockinfile:
+  #     path: '{{ vapor_path }}/Sources/App/routes.swift'
+  #     marker_begin: 1. BEGIN
+  #     marker_end: 1. END
+  #     marker: "// {mark} ANSIBLE MANAGED BLOCK"
+  #     block: '{{ routes_block | indent(width=4, first=True) }}'
+  #     insertbefore: '^}\s*$'
+  - name: setup routes.swift
+    ansible.builtin.replace:
+      path: '{{ vapor_path }}/Sources/App/routes.swift'
+      regexp: '(^.*func routes\(_ app: Application\) throws {\s)([\s\S]*)([^\S\r\n]*})'
+      replace: '\1{{ routes_block | indent(width=4, first=True) }}\3'
+
+  - name: Import Leaf
+    ansible.builtin.lineinfile:
+      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      regexp: '^.*import Leaf.*$'
+      insertafter: '^.*import .*$'
+      line: 'import Leaf'
+
+  - name: Import FluentPostgresDriver
+    ansible.builtin.lineinfile:
+      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      regexp: '^.*import FluentPostgresDriver.*$'
+      insertafter: '^.*import .*$'
+      line: 'import FluentPostgresDriver'
+    when: import_fluent_postgresql_driver == true

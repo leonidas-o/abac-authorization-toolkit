@@ -1,0 +1,68 @@
+import Vapor
+
+struct MyProfileController: RouteCollection {
+    
+    func boot(routes: RoutesBuilder) throws {
+        let myProfileRoute = routes.grouped("my-profile")
+        let authGroup = myProfileRoute.grouped(UserAuthSessionsMiddleware(apiUrl: APIConnection.url, redirectPath: "/login"))
+
+        // Frontend
+        authGroup.get(use: resetPasswordPrepare)
+        authGroup.post("reset-password", use: resetPassword)
+    }
+    
+
+    func resetPasswordPrepare(_ req: Request) async throws -> View {
+        let context = MyProfileOverviewContext(
+            title: "Reset Password",
+            formActionResetPassword: "/my-profile/reset-password",
+            error: req.query[String.self, at: "error"])
+        return try await req.view.render("myProfile/profile", context)
+    }
+    
+    func resetPassword(_ req: Request) async throws -> Response {
+        let resetPasswordData = try req.content.decode(ResetPasswordDataMod.self)
+        let uri = URI(string: "\(APIConnection.apiBaseURL)/\(APIResource._apiEntry)/\(APIResource.Resource.myUser.rawValue)/\(APIResource.Resource.userPassword.rawValue)")
+        let authManager = AuthManager(req: req)
+        let response = try await req.client.patch(uri) { clientReq in
+            if let token = authManager.accessToken {
+                clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+            }
+            try clientReq.content.encode(resetPasswordData.convertToResetPasswordData(), as: .json)
+        }
+        do {
+            try response.checkHttpPutPostPatch()
+            return req.redirect(to: "/login?info=Password successfully changed")
+        } catch {
+            let error = error.getStatusAndMessage()
+            return req.redirect(to: "/my-profile?error=\(error.message)")
+        }
+    }
+}
+
+
+
+
+// MARK: - Leaf contexts
+
+struct MyProfileOverviewContext: Encodable {
+    let title: String
+    let formActionResetPassword: String
+    let error: String?
+}
+
+
+
+// MARK: - DTO's Modified
+
+struct ResetPasswordDataMod: Content {
+    
+    var token: String?
+    let currentPassword: String?
+    let password: String
+    let confirmPassword: String
+    
+    func convertToResetPasswordData() -> ResetPasswordData {
+        return ResetPasswordData(token: token, currentPassword: currentPassword, password: password, confirmPassword: confirmPassword)
+    }
+}
