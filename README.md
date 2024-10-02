@@ -1,14 +1,13 @@
 # abac-authorization-toolkit
-This is a toolkit to help to incorporate the abac-authorization package into a Swift Vapor project.
+This is an ansible based toolkit to help to incorporate the abac-authorization package into a Swift Vapor project.
 
-## Getting Started
-Default variables will be set under:
-`group_vars/all/0_vars.yml` and in a role e.g. `sample_frontend_backend/defaults/main.yml`.
-If you need to overwrite some of the variables, For `group_vars`: copy over the variable and modify the values according to your needs inside `group_vars/all/1_vars.yml`. For a role like `sample_frontend_backend`: copy over the variable, create the directory and modify the values according to your needs inside `sample_frontend_backend/vars/main.yml`. Any ansible role vars can be overwritten in the `/vars/main.yml` file.
-Dictionaries must be copied over as a whole, single key values can't be overwritten with the current configs (It's not recommended to change `hash_behaviour` settings).
+## Introduction
+Default variables will be set in `group_vars/all/0_vars.yml` and in the ansible roles e.g. `sample_frontend_backend/defaults/main.yml`.
+If you want to overwrite some of the variables from `group_vars` copy over the variables into `group_vars/all/1_vars.yml` and modify the values according to your needs. For a role like `sample_frontend_backend` copy over the role variables into `sample_frontend_backend/vars/main.yml` and modify the values according to your needs. Any ansible role variable can be overwritten in its `/vars/main.yml` file.
+Dictionaries must be copied over as a whole, single key values can't be overwritten with the current config (It's not recommended to change `hash_behaviour` settings).
 Single parts can be removed from the sample generation process by setting `is_active` to false.
 
-
+## Getting Started
 1. Create new vapor project
 ```bash
 vapor new hello -n
