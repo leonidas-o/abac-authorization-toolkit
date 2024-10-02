@@ -27,9 +27,9 @@ docker container rm abac-toolkit || true && docker run \
 > It comes pre-configured to use redis for sessions. RedisRepo is the only template right now, so e.g. fluent for sessions is not supported (yet).
 
 Possible Tags:
-`--tags sample-frontend-backend`: Pre-configured frontend/backend project with Fluent, Redis, Leaf and PostgreSQL
-~~`--tags sample-api`: Not yet implemented~~
-~~`--tags sample-backend`: Not yet implemented~~
+- `--tags sample-frontend-backend`: Pre-configured frontend/backend project with Fluent, Redis, Leaf and PostgreSQL
+- ~~`--tags sample-api`: Not yet implemented~~
+- ~~`--tags sample-backend`: Not yet implemented~~
 > PostgreSQL can be replaced easily by modifying `configure_block` and `swift_packages` vars OR by a PR with a similar ansible role but another db driver.
 
 
