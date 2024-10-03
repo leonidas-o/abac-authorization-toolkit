@@ -65,9 +65,9 @@ docker container rm abac-toolkit || true && docker run \
 
 
 
-## Description about Tags
+## Tag Descriptions
 
-### sample-frontend-backend
+### "sample-frontend-backend"
 
 This demo-project (brought together under one hood out of two projects - api and backend) shows how a separate API and backend approach could work. Detailed instructions how to use ABACAuthorization package can be found in the package's README file. Http Port can be set via HTTP_PORT Environment variable, if not set, it defaults to 8080.
 
