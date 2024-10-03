@@ -13,8 +13,8 @@ Single parts can be removed from the sample generation process by setting `is_ac
 vapor new hello -n
 ```
 > If using static files make sure you've set the `custom working directory` in e.g. XCode.
-1. Clone the abac-authorization-toolkit or pull the latest changes and cd into the abac-authorization-toolkit project
-2. Set `VAPORPROJECT` var, run the playbook and watch your project grow
+2. Clone the abac-authorization-toolkit or pull the latest changes and cd into the abac-authorization-toolkit project
+3. Set `VAPORPROJECT` var, run the playbook and watch your project grow
 ```bash
 VAPORPROJECT=/path/to/vapor-project
 docker container rm abac-toolkit || true && docker run \
