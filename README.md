@@ -13,8 +13,8 @@ Single parts can be removed from the sample generation process by setting `is_ac
 vapor new hello -n
 ```
 > If using static files make sure you've set the `custom working directory` in e.g. XCode.
-2. The latest abac-authorization-toolkit changes were pulled and current directory is root of the project
-3. Set `VAPORPROJECT` var, run the ansible playbook and watch your project grow
+1. Clone the abac-authorization-toolkit or pull the latest changes and cd into the abac-authorization-toolkit project
+2. Set `VAPORPROJECT` var, run the playbook and watch your project grow
 ```bash
 VAPORPROJECT=/path/to/vapor-project
 docker container rm abac-toolkit || true && docker run \
@@ -24,7 +24,7 @@ docker container rm abac-toolkit || true && docker run \
     --workdir /srv/ansible cytopia/ansible:2.13-tools \
     /bin/bash -c "ansible-playbook site.yml --tags sample-frontend-backend"
 ```
-> It comes pre-configured to use redis for sessions. RedisRepo is the only template right now, so e.g. fluent for sessions is not supported (yet).
+> RedisRepo is the only template right now, so e.g. fluent for sessions is not supported (yet).
 
 Possible Tags:
 - `--tags sample-frontend-backend`: Pre-configured frontend/backend project with Fluent, Redis, Leaf and PostgreSQL
