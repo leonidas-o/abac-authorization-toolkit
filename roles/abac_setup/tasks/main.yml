@@ -25,14 +25,14 @@
   block:
   - name: Import abac-authorization
     ansible.builtin.lineinfile:
-      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/configure.swift'
       regexp: '^.*import ABACAuthorization.*$'
       insertafter: '^.*import .*$'
       line: 'import ABACAuthorization'
 
   - name: setup abac in configure.swift
     ansible.builtin.blockinfile:
-      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/configure.swift'
       marker_begin: 1. BEGIN
       marker_end: 1. END
       marker: "// {mark} ANSIBLE MANAGED BLOCK"
@@ -48,7 +48,7 @@
 
   - name: setup prepare.swift in configure.swift
     ansible.builtin.blockinfile:
-      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/configure.swift'
       marker_begin: 2. BEGIN
       marker_end: 2. END
       marker: "// {mark} ANSIBLE MANAGED BLOCK"
@@ -58,7 +58,7 @@
   - name: Create prepare.swift file from template
     ansible.builtin.template:
       src: prepare.swift.j2
-      dest: '{{ vapor_path }}/Sources/App/prepare.swift'
+      dest: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/prepare.swift'
       mode: '0640'
       selevel: '_default'
       serole: '_default'

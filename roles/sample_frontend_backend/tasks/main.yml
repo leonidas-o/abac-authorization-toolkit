@@ -22,7 +22,7 @@
 
   # - name: setup routes.swift
   #   ansible.builtin.blockinfile:
-  #     path: '{{ vapor_path }}/Sources/App/routes.swift'
+  #     path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/routes.swift'
   #     marker_begin: 1. BEGIN
   #     marker_end: 1. END
   #     marker: "// {mark} ANSIBLE MANAGED BLOCK"
@@ -30,20 +30,20 @@
   #     insertbefore: '^}\s*$'
   - name: setup routes.swift
     ansible.builtin.replace:
-      path: '{{ vapor_path }}/Sources/App/routes.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/routes.swift'
       regexp: '(^.*func routes\(_ app: Application\) throws {\s)([\s\S]*)([^\S\r\n]*})'
       replace: '\1{{ routes_block | indent(width=4, first=True) }}\3'
 
   - name: Import Leaf
     ansible.builtin.lineinfile:
-      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/configure.swift'
       regexp: '^.*import Leaf.*$'
       insertafter: '^.*import .*$'
       line: 'import Leaf'
 
   - name: Import FluentPostgresDriver
     ansible.builtin.lineinfile:
-      path: '{{ vapor_path }}/Sources/App/configure.swift'
+      path: '{{ vapor_path }}/{{ vapor_project_source_subdir }}/configure.swift'
       regexp: '^.*import FluentPostgresDriver.*$'
       insertafter: '^.*import .*$'
       line: 'import FluentPostgresDriver'

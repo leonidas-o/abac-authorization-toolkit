@@ -1,2 +1,3 @@
 # vapor path inside the container
 vapor_path: /srv/vapor
+vapor_project_source_subdir: Sources/Hello

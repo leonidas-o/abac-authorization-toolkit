@@ -14,7 +14,8 @@ vapor new hello -n
 ```
 > If using static files make sure you've set the `custom working directory` in e.g. XCode.
 2. Clone the abac-authorization-toolkit or pull the latest changes and cd into the abac-authorization-toolkit project
-3. Set `VAPORPROJECT` var, run the playbook and watch your project grow
+3. Specify/ overwrite the `vapor_project_source_subdir` in `group_vars/all`. This is mandatory, because when you create a project with `vapor new my-project` it creates a `Sources/MyProject` subfolder (Camel case) and this name needs to be set for `vapor_project_source_subdir`.
+4. Set `VAPORPROJECT` env var and run the playbook (watch your project grow).
 ```bash
 VAPORPROJECT=/path/to/vapor-project
 docker container rm abac-toolkit || true && docker run \
@@ -25,6 +26,7 @@ docker container rm abac-toolkit || true && docker run \
     /bin/bash -c "ansible-playbook site.yml --tags sample-frontend-backend"
 ```
 > RedisRepo is the only template right now, so e.g. fluent for sessions is not supported (yet).
+> If ansible thinks that file was already updated, use for ansible-playbook: `--flush-cache`
 
 Possible Tags:
 - `--tags sample-frontend-backend`: Pre-configured frontend/backend project with Fluent, Redis, Leaf and PostgreSQL
@@ -49,7 +51,7 @@ docker container rm abac-toolkit || true && docker run \
     --workdir /srv/ansible cytopia/ansible:2.13-tools \
     /bin/bash -c "ansible-playbook site.yml --tags sample-frontend-backend --list-tasks"
 ```
-> If ansible thinks that file already updated: `--flush-cache`
+> If ansible thinks that file was already updated, use for ansible-playbook: `--flush-cache`
 
 
 ## Customization
