@@ -4,10 +4,10 @@ import ABACAuthorization
 
 struct RestrictedABACAuthorizationPoliciesMigration: AsyncMigration {
     
-    let readAuthPolicies = "\(ABACAPIAction.read)\(APIResource.Resource.abacAuthPolicies.rawValue)"
-    let createAuthPolicies = "\(ABACAPIAction.create)\(APIResource.Resource.abacAuthPolicies.rawValue)"
-    let readRoles = "\(ABACAPIAction.read)\(APIResource.Resource.roles.rawValue)"
-    let readAuths = "\(ABACAPIAction.read)\(APIResource.Resource.auth.rawValue)"
+    let readAuthPolicies = "\(ABACAPIAction.read)/\(APIResource.Resource.abacAuthPolicies.rawValue)"
+    let createAuthPolicies = "\(ABACAPIAction.create)/\(APIResource.Resource.abacAuthPolicies.rawValue)"
+    let readRoles = "\(ABACAPIAction.read)/\(APIResource.Resource.roles.rawValue)"
+    let readAuths = "\(ABACAPIAction.read)/\(APIResource.Resource.auth.rawValue)"
     
     let updateAuthPolicyServiceActionOnResource = "\(ABACAPIAction.update)\(APIResource.Resource.abacAuthPoliciesService.rawValue)"
     
